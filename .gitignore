@@ -1,0 +1,14 @@
+node_modules
+dist
+.next
+coverage
+.env
+.env.local
+*.xlsx
+exports/
+*.log
+.turbo
+.DS_Store
+apps/api/uploads
+apps/worker/exports
+.playwright/

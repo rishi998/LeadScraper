@@ -1,0 +1,31 @@
+{
+  "name": "leadintel",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "pnpm -r --filter=./packages/* build && pnpm -r --filter=./apps/* build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "dev": "concurrently -n api,worker,web -c teal,magenta,cyan \"pnpm dev:api\" \"pnpm dev:worker\" \"pnpm dev:web\"",
+    "dev:api": "pnpm --filter @leadintel/api dev",
+    "dev:worker": "pnpm --filter @leadintel/worker dev",
+    "dev:web": "pnpm --filter @leadintel/web dev",
+    "playwright:install": "pnpm --filter @leadintel/crawler exec playwright install chromium",
+    "maps:login": "pnpm exec tsx scripts/playwright-maps-login.ts",
+    "maps:profiles": "pnpm exec tsx scripts/list-chrome-profiles.ts",
+    "maps:sync-profile": "pnpm exec tsx scripts/sync-chrome-profile.ts",
+    "maps:kill-chrome": "pnpm exec tsx scripts/kill-chrome.ts"
+  },
+    "devDependencies": {
+    "@types/node": "^22.10.2",
+    "concurrently": "^9.1.2",
+    "playwright": "^1.49.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

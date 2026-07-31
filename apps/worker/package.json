@@ -1,0 +1,36 @@
+{
+  "name": "@leadintel/worker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "dev": "tsx watch --import ./src/preload-env.ts src/main.ts",
+    "start": "node --import ./dist/preload-env.js dist/main.js",
+    "test": "vitest run --passWithNoTests",
+    "lint": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@leadintel/audit": "workspace:*",
+    "@leadintel/compliance": "workspace:*",
+    "@leadintel/contacts": "workspace:*",
+    "@leadintel/crawler": "workspace:*",
+    "@leadintel/database": "workspace:*",
+    "@leadintel/discovery": "workspace:*",
+    "@leadintel/entity-resolution": "workspace:*",
+    "@leadintel/excel": "workspace:*",
+    "@leadintel/intelligence": "workspace:*",
+    "@leadintel/job-queue": "workspace:*",
+    "@leadintel/providers": "workspace:*",
+    "@leadintel/scoring": "workspace:*",
+    "@leadintel/shared": "workspace:*",
+    "@leadintel/technology": "workspace:*",
+    "mongoose": "^8.9.3",
+    "pino": "^9.6.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}
