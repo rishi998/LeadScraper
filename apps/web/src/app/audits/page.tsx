@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { PageHeader } from '@/components/PageHeader';
 import { apiGet } from '@/lib/api';
 
 type ListResponse = {
@@ -21,29 +22,47 @@ export default async function AuditsPage() {
   }
 
   return (
-    <div>
-      <h1>Audits</h1>
-      <p className="muted">Businesses with completed audit confidence scores</p>
-      {error && <p className="error">{error}</p>}
+    <div className="page-stack">
+      <PageHeader
+        title="Audits"
+        description="Businesses with completed website audits and confidence scores."
+      />
+
+      {error ? <p className="error">{error}</p> : null}
+
       <div className="panel">
-        <table>
-          <thead>
-            <tr>
-              <th>Business</th>
-              <th>Website Health</th>
-              <th>Audit Confidence</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((b) => (
-              <tr key={b.id}>
-                <td><Link href={`/businesses/${b.id}`}>{b.canonicalName}</Link></td>
-                <td>{b.websiteHealth?.toFixed?.(1) ?? '—'}</td>
-                <td>{b.auditConfidence?.toFixed?.(1) ?? '—'}</td>
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Business</th>
+                <th>Website Health</th>
+                <th>Audit Confidence</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {items.length ? (
+                items.map((b) => (
+                  <tr key={b.id}>
+                    <td>
+                      <Link href={`/businesses/${b.id}`} className="link-btn">
+                        {b.canonicalName}
+                      </Link>
+                    </td>
+                    <td>{b.websiteHealth?.toFixed?.(1) ?? '—'}</td>
+                    <td>{b.auditConfidence?.toFixed?.(1) ?? '—'}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={3} className="empty-state">
+                    No audited businesses yet. Run a search job and wait for the pipeline to finish.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

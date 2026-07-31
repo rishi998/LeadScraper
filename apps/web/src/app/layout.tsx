@@ -1,27 +1,17 @@
 import './globals.css';
-import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { AppShell } from '@/components/AppShell';
 
 export const metadata = {
-  title: 'LeadIntel',
-  description: 'Business lead intelligence platform',
+  title: 'LeadScraper',
+  description: 'Business lead scraping and export platform',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body>
-        <div className="shell">
-          <aside className="nav">
-            <div className="brand">LeadIntel</div>
-            <Link href="/">Dashboard</Link>
-            <Link href="/search-jobs">Search Jobs</Link>
-            <Link href="/businesses">Businesses</Link>
-            <Link href="/audits">Audits</Link>
-            <Link href="/exports">Exports</Link>
-          </aside>
-          <main className="content">{children}</main>
-        </div>
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );
