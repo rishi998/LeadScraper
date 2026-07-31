@@ -1,0 +1,8 @@
+.playwright
+exports
+apps/worker/exports
+*.xlsx
+.env
+.env.local
+coverage
+node_modules/.cache

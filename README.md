@@ -51,6 +51,19 @@ Or separately: `pnpm dev:api` · `pnpm dev:worker` · `pnpm dev:web`
 - API: http://localhost:3001/health  
 - Web: http://localhost:3000  
 
+## Deploy to Vercel (dashboard)
+
+The Next.js app deploys to Vercel; API + worker run on Railway/VPS + MongoDB Atlas.
+
+1. Import repo on Vercel with **Root Directory** = `apps/web`
+2. Enable **Include source files outside of the Root Directory**
+3. Set env var **`API_URL`** = your public API URL (e.g. Railway)
+4. Deploy API/worker separately — see [docs/VERCEL.md](./docs/VERCEL.md)
+
+```bash
+npx vercel --cwd apps/web
+```
+
 ## Job queue
 
 `MongoJobQueue` uses atomic `findOneAndUpdate` with sort `{ priority: -1, createdAt: 1 }`.  
