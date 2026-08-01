@@ -98,7 +98,14 @@ Produce `entityMatchScore`. Merge preserving aliases, sources, contacts, evidenc
 **Signals:** domain, name, address, phone, org schema, title, contacts  
 **Output:** `websiteConfidence`, status VERIFIED | LIKELY | UNCERTAIN | INVALID
 
+Fetches the homepage first (`fetchVerificationSample`); title/body text supply the name, phone,
+and city signals. Without that fetch nothing can match and every site scores INVALID.
+
 Only VERIFIED or high-confidence LIKELY (≥ 0.75) auto-advance to qualification path without manual review flag.
+
+Crawl gate: VERIFIED or LIKELY advance to crawl. A reachable page that `shouldUseBrowser`
+flags as a JS shell is undecidable over plain HTTP and also advances, so the crawler's
+Playwright fallback can render it. INVALID and unreachable sites skip to scoring.
 
 **Tier:** 1
 

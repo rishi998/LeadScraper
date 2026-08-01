@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   extractMapsPlaceDetails,
   extractPlaceIdFromMapsUrl,
+  isMapsAggregatorHost,
   mapMapsListingToCandidate,
   parseMapsAriaLabel,
   parsePhoneFromMapsLabel,
@@ -137,5 +138,52 @@ describe('pickMapsWebsiteUrl', () => {
         'https://business.example/contact',
       ]),
     ).toBe('https://business.example/contact');
+  });
+
+  it('skips directories, delivery apps, and social profiles', () => {
+    expect(
+      pickMapsWebsiteUrl([
+        'https://www.zomato.com/ncr/indian-punch-restaurant',
+        'https://www.tablecheck.com/en/andaz-delhi/reserve',
+        'https://www.instagram.com/indianpunch',
+        'https://indianpunch.in/',
+      ]),
+    ).toBe('https://indianpunch.in/');
+  });
+
+  it('returns undefined when only aggregator links exist', () => {
+    expect(pickMapsWebsiteUrl(['https://www.swiggy.com/restaurants/abc'])).toBeUndefined();
+  });
+});
+
+describe('isMapsAggregatorHost', () => {
+  it('matches bare and subdomain forms', () => {
+    expect(isMapsAggregatorHost('zomato.com')).toBe(true);
+    expect(isMapsAggregatorHost('www.zomato.com')).toBe(true);
+    expect(isMapsAggregatorHost('order.swiggy.com')).toBe(true);
+    expect(isMapsAggregatorHost('daryaganj.com')).toBe(false);
+  });
+});
+
+describe('extractMapsPlaceDetails website preference', () => {
+  it('prefers the authority link over other links on the panel', () => {
+    expect(
+      extractMapsPlaceDetails({
+        telHrefs: [],
+        authorityHrefs: ['https://daryaganj.com/'],
+        linkHrefs: ['https://www.zomato.com/ncr/daryaganj', 'https://daryaganj.com/'],
+        buttonLabels: [],
+      }).website,
+    ).toBe('https://daryaganj.com/');
+  });
+
+  it('falls back to a non-aggregator link when the authority row is absent', () => {
+    expect(
+      extractMapsPlaceDetails({
+        telHrefs: [],
+        linkHrefs: ['https://www.zomato.com/ncr/daryaganj', 'https://daryaganj.com/'],
+        buttonLabels: [],
+      }).website,
+    ).toBe('https://daryaganj.com/');
   });
 });

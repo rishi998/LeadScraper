@@ -32,6 +32,35 @@ export interface WebsiteVerificationResult {
   reasons: string[];
 }
 
+export interface VerificationSample {
+  statusCode: number;
+  finalUrl: string;
+  reachable: boolean;
+  title?: string;
+  text: string;
+  html: string;
+}
+
+/**
+ * Single-page fetch that gives `verifyWebsite` real page signals. Without it the
+ * verifier has no text to match and can never reach a qualifying confidence.
+ */
+export async function fetchVerificationSample(
+  url: string,
+  options: CrawlerOptions = {},
+): Promise<VerificationSample> {
+  const res = await safeFetch(url, options);
+  const $ = cheerio.load(res.body);
+  return {
+    statusCode: res.statusCode,
+    finalUrl: res.finalUrl,
+    reachable: res.statusCode >= 200 && res.statusCode < 400,
+    title: $('title').first().text().trim() || undefined,
+    text: $('body').text().replace(/\s+/g, ' ').trim().slice(0, 20_000),
+    html: res.body,
+  };
+}
+
 function priorityScore(pathname: string): number {
   const p = pathname.toLowerCase().replace(/\/$/, '') || '/';
   const idx = CRAWLER_DEFAULTS.priorityPaths.findIndex((x) => x === p || p.endsWith(x));
@@ -199,12 +228,12 @@ export function verifyWebsite(input: WebsiteVerificationInput): WebsiteVerificat
   if (!domain) {
     return { status: 'INVALID', confidence: 0, reasons: ['invalid_url'] };
   }
-  if (domain.endsWith('.example.com') || domain.includes(normalizeToken(input.businessName).slice(0, 8))) {
+  const nameTokens = normalizeToken(input.businessName).split(' ').filter((t) => t.length > 2);
+  if (domain.endsWith('.example.com') || domainMatchesName(domain, nameTokens)) {
     score += 0.25;
     reasons.push('domain_name_affinity');
   }
 
-  const nameTokens = normalizeToken(input.businessName).split(' ').filter((t) => t.length > 2);
   const hay = `${input.pageTitle ?? ''} ${input.pageText ?? ''}`.toLowerCase();
   const hits = nameTokens.filter((t) => hay.includes(t)).length;
   if (nameTokens.length > 0) {
@@ -239,6 +268,15 @@ export function verifyWebsite(input: WebsiteVerificationInput): WebsiteVerificat
 
 function normalizeToken(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/** Compares against a dot-stripped domain so "smilecare.in" still matches "Smile Care". */
+function domainMatchesName(domain: string, nameTokens: string[]): boolean {
+  const core = domain.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!core) return false;
+  const compact = nameTokens.join('');
+  if (compact.length >= 4 && core.includes(compact)) return true;
+  return nameTokens.some((token) => token.length >= 4 && core.includes(token));
 }
 
 export * from './ssrf.js';

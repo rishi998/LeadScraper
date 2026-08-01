@@ -1,4 +1,5 @@
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
+const NON_EMAIL_SUFFIXES = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico', '.css', '.js'];
 
 export function normalizeBusinessName(name: string): string {
   return name
@@ -12,9 +13,17 @@ export function normalizeBusinessName(name: string): string {
 }
 
 export function normalizeEmail(email: string): string | null {
-  const cleaned = email.trim().toLowerCase().replace(/^mailto:/i, '');
+  const withoutScheme = email.trim().replace(/^mailto:/i, '');
+  // mailto hrefs carry ?subject=/&body= params, extra recipients, and percent-encoding.
+  const [addressPart = ''] = withoutScheme.split(/[?#,;\s]/);
+  let cleaned: string;
+  try {
+    cleaned = decodeURIComponent(addressPart).trim().toLowerCase();
+  } catch {
+    cleaned = addressPart.trim().toLowerCase();
+  }
   if (!EMAIL_RE.test(cleaned)) return null;
-  if (cleaned.endsWith('.png') || cleaned.endsWith('.jpg')) return null;
+  if (NON_EMAIL_SUFFIXES.some((suffix) => cleaned.endsWith(suffix))) return null;
   return cleaned;
 }
 

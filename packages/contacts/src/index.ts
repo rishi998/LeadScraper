@@ -29,6 +29,33 @@ export interface ContactPageInput {
 const EMAIL_TEXT_RE = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi;
 const PHONE_TEXT_RE = /(?:\+?\d[\d\s().-]{7,}\d)/g;
 
+/** Machine-generated addresses (error-tracker DSNs, template placeholders) are not leads. */
+function isNoiseEmail(email: string): boolean {
+  const [local = '', domain = ''] = email.split('@');
+  if (local.length > 64) return true;
+  if (/^[0-9a-f]{16,}$/i.test(local)) return true;
+  if (/^(you|your|youremail|someone|user|username|name|email|test|example)$/i.test(local)) {
+    return true;
+  }
+  if (/(^|\.)sentry[.-]/i.test(domain)) return true;
+  if (/(^|\.)wixpress\.com$/i.test(domain)) return true;
+  if (/(^|\.)(sentry\.io|localhost|invalid)$/i.test(domain)) return true;
+  return false;
+}
+
+/**
+ * Cheerio's `.text()` joins adjacent nodes with no separator, which welds neighbouring
+ * labels onto addresses ("reservationsinfo@x.com"). Replacing tags with spaces keeps
+ * word boundaries intact.
+ */
+function visibleText($: cheerio.CheerioAPI): string {
+  $('script, style, noscript, template').remove();
+  return ($('body').html() ?? '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/\s+/g, ' ');
+}
+
 export function extractContactsFromHtml(input: ContactPageInput): ExtractedContact[] {
   const $ = cheerio.load(input.html);
   const pageUrl = input.url;
@@ -46,7 +73,7 @@ export function extractContactsFromHtml(input: ContactPageInput): ExtractedConta
   $('a[href^="mailto:"]').each((_, el) => {
     const href = $(el).attr('href') ?? '';
     const email = normalizeEmail(href);
-    if (!email) return;
+    if (!email || isNoiseEmail(email)) return;
     upsert(
       scoreEmail({
         email,
@@ -123,7 +150,7 @@ export function extractContactsFromHtml(input: ContactPageInput): ExtractedConta
       const nodes = Array.isArray(data) ? data : [data];
       for (const node of nodes) {
         const email = typeof node.email === 'string' ? normalizeEmail(node.email) : null;
-        if (email) {
+        if (email && !isNoiseEmail(email)) {
           upsert(
             scoreEmail({
               email,
@@ -157,10 +184,10 @@ export function extractContactsFromHtml(input: ContactPageInput): ExtractedConta
     }
   });
 
-  const bodyText = $('body').text();
+  const bodyText = visibleText($);
   for (const match of bodyText.match(EMAIL_TEXT_RE) ?? []) {
     const email = normalizeEmail(match);
-    if (!email) continue;
+    if (!email || isNoiseEmail(email)) continue;
     upsert(
       scoreEmail({
         email,

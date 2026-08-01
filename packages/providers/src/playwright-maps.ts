@@ -27,8 +27,32 @@ export interface MapsListingRow {
 
 export interface MapsPlaceDetailSignals {
   telHrefs: string[];
+  /** Links from the "Website" row of the place panel; the business's own site. */
+  authorityHrefs?: string[];
   linkHrefs: string[];
   buttonLabels: string[];
+}
+
+/**
+ * Directories, delivery apps, and social profiles that appear as ordinary links on a
+ * place panel. Treating one as the business website sends the crawler to the aggregator's
+ * contact details instead of the business's own.
+ */
+const MAPS_AGGREGATOR_HOSTS = [
+  'zomato.com', 'swiggy.com', 'magicpin.in', 'dineout.co.in', 'eazydiner.com',
+  'tablecheck.com', 'opentable.com', 'resy.com', 'yelp.com',
+  'tripadvisor.com', 'tripadvisor.in', 'justdial.com', 'sulekha.com', 'indiamart.com',
+  'practo.com', 'urbancompany.com', 'urbanclap.com', 'zocdoc.com',
+  'makemytrip.com', 'goibibo.com', 'booking.com', 'agoda.com', 'airbnb.com', 'trivago.in',
+  'doordash.com', 'ubereats.com', 'grubhub.com', 'foursquare.com',
+  'petpooja.in', 'dotpe.in', 'mydukaan.io',
+  'facebook.com', 'fb.com', 'instagram.com', 'twitter.com', 'x.com', 'linkedin.com',
+  'youtube.com', 'whatsapp.com', 'wa.me', 'wa.link', 't.me', 'linktr.ee', 'bit.ly',
+];
+
+export function isMapsAggregatorHost(hostname: string): boolean {
+  const h = hostname.toLowerCase().replace(/^www\./, '');
+  return MAPS_AGGREGATOR_HOSTS.some((host) => h === host || h.endsWith(`.${host}`));
 }
 
 export interface MapsBrowserProfile {
@@ -132,7 +156,7 @@ export function pickMapsWebsiteUrl(hrefs: string[]): string | undefined {
     if (!href.startsWith('http')) continue;
     try {
       const host = new URL(href).hostname;
-      if (!isExcludedMapsWebsiteHost(host)) return href;
+      if (!isExcludedMapsWebsiteHost(host) && !isMapsAggregatorHost(host)) return href;
     } catch {
       continue;
     }
@@ -158,7 +182,7 @@ export function extractMapsPlaceDetails(signals: MapsPlaceDetailSignals): {
 
   return {
     phone,
-    website: pickMapsWebsiteUrl(signals.linkHrefs),
+    website: pickMapsWebsiteUrl([...(signals.authorityHrefs ?? []), ...signals.linkHrefs]),
   };
 }
 
@@ -172,11 +196,13 @@ export async function readMapsPlaceDetailSignals(page: Page): Promise<MapsPlaceD
     const telHrefs = Array.from(document.querySelectorAll('a[href^="tel:"]')).map(
       (a) => a.getAttribute('href') ?? '',
     );
-    const linkHrefs = [
+    const authorityHrefs = [
       ...Array.from(document.querySelectorAll('a[data-item-id="authority"]')),
       ...Array.from(document.querySelectorAll('a[aria-label*="Website" i]')),
-      ...Array.from(document.querySelectorAll('a[href^="http"]')),
     ]
+      .map((a) => a.getAttribute('href') ?? '')
+      .filter(Boolean);
+    const linkHrefs = Array.from(document.querySelectorAll('a[href^="http"]'))
       .map((a) => a.getAttribute('href') ?? '')
       .filter(Boolean);
     const buttonLabels = [
@@ -184,7 +210,7 @@ export async function readMapsPlaceDetailSignals(page: Page): Promise<MapsPlaceD
       ...Array.from(document.querySelectorAll('button[aria-label*="Phone" i]')),
     ].map((el) => el.getAttribute('aria-label') ?? el.textContent ?? '');
 
-    return { telHrefs, linkHrefs, buttonLabels };
+    return { telHrefs, authorityHrefs, linkHrefs, buttonLabels };
   });
 }
 

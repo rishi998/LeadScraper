@@ -6,7 +6,13 @@ import {
   runFullAudits,
 } from '@leadintel/audit';
 import { extractContactsFromHtml, selectPrimaryContacts } from '@leadintel/contacts';
-import { loadCrawlerOptionsFromEnv, verifyWebsite } from '@leadintel/crawler';
+import {
+  fetchVerificationSample,
+  loadCrawlerOptionsFromEnv,
+  shouldUseBrowser,
+  verifyWebsite,
+  type VerificationSample,
+} from '@leadintel/crawler';
 import {
   BusinessAliasModel,
   BusinessModel,
@@ -32,6 +38,7 @@ import type { JobQueue } from '@leadintel/job-queue';
 import { createDiscoveryProvider } from '@leadintel/providers';
 import { scoreLead } from '@leadintel/scoring';
 import {
+  AUTO_QUALIFY_WEBSITE_CONFIDENCE,
   ContactType,
   JobStatus,
   OperationalStatus,
@@ -510,13 +517,30 @@ export async function processWebsiteVerification(
     ? fixtureHtmlForBusiness(business.canonicalName, phone?.value, website.domain)
     : '';
 
+  let sample: VerificationSample | null = null;
+  if (!isFixture) {
+    try {
+      sample = await fetchVerificationSample(website.url, loadCrawlerOptionsFromEnv());
+    } catch (err) {
+      logger.warn(
+        {
+          searchJobId,
+          businessId,
+          url: website.url,
+          error: err instanceof Error ? err.message : String(err),
+        },
+        'website verification fetch failed',
+      );
+    }
+  }
+
   const result = verifyWebsite({
     businessName: business.canonicalName,
     websiteUrl: website.url,
     phone: phone?.value,
     city: business.city,
-    pageTitle: isFixture ? `${business.canonicalName} | Official Site` : undefined,
-    pageText: isFixture ? html : undefined,
+    pageTitle: isFixture ? `${business.canonicalName} | Official Site` : sample?.title,
+    pageText: isFixture ? html : sample?.text,
   });
 
   const status = isFixture
@@ -527,6 +551,7 @@ export async function processWebsiteVerification(
   await WebsiteModel.findByIdAndUpdate(website._id, {
     verificationStatus: status,
     confidence,
+    status: sample ? (sample.reachable ? 'REACHABLE' : 'UNREACHABLE') : isFixture ? 'REACHABLE' : 'UNREACHABLE',
     lastVerifiedAt: new Date(),
   });
 
@@ -543,12 +568,39 @@ export async function processWebsiteVerification(
       status === WebsiteVerificationStatus.VERIFIED
         ? VerificationStatus.CONFIRMED
         : VerificationStatus.LIKELY,
-    metadata: { reasons: result.reasons, status },
+    metadata: {
+      reasons: result.reasons,
+      status,
+      httpStatus: sample?.statusCode ?? null,
+    },
   });
 
+  // Verification can only match signals the HTTP body actually contained, so a JS shell
+  // is undecidable here; defer it to the crawler, which falls back to a real browser.
+  const undecidable = Boolean(sample?.reachable && shouldUseBrowser(sample.html, sample.statusCode));
   const qualify =
     status === WebsiteVerificationStatus.VERIFIED ||
-    (status === WebsiteVerificationStatus.LIKELY && confidence >= 0.75);
+    status === WebsiteVerificationStatus.LIKELY ||
+    undecidable;
+
+  logger.info(
+    {
+      searchJobId,
+      businessId,
+      domain: website.domain,
+      status,
+      confidence: Math.round(confidence * 100) / 100,
+      reasons: result.reasons,
+      httpStatus: sample?.statusCode ?? null,
+      needsManualReview: !(
+        status === WebsiteVerificationStatus.VERIFIED ||
+        (status === WebsiteVerificationStatus.LIKELY &&
+          confidence >= AUTO_QUALIFY_WEBSITE_CONFIDENCE)
+      ),
+      qualify,
+    },
+    'website verification',
+  );
 
   if (qualify) {
     await jobQueue.enqueue({

@@ -19,6 +19,19 @@ describe('normalizeEmail', () => {
     expect(normalizeEmail('  Sales@Example.COM ')).toBe('sales@example.com');
     expect(normalizeEmail('not-an-email')).toBeNull();
   });
+
+  it('strips mailto scheme, query params, and percent-encoding', () => {
+    expect(normalizeEmail('mailto:info@shop.com')).toBe('info@shop.com');
+    expect(normalizeEmail('mailto:info@shop.com?subject=Hello%20There')).toBe('info@shop.com');
+    expect(normalizeEmail('mailto:info@shop.com?subject=Hi&body=Quote')).toBe('info@shop.com');
+    expect(normalizeEmail('mailto:info%40shop.com')).toBe('info@shop.com');
+    expect(normalizeEmail('mailto:a@shop.com,b@shop.com')).toBe('a@shop.com');
+  });
+
+  it('rejects asset paths that look like addresses', () => {
+    expect(normalizeEmail('sprite@2x.png')).toBeNull();
+    expect(normalizeEmail('icon@3x.svg')).toBeNull();
+  });
 });
 
 describe('normalizePhone', () => {

@@ -36,4 +36,37 @@ describe('verifyWebsite', () => {
     expect(['VERIFIED', 'LIKELY']).toContain(result.status);
     expect(result.confidence).toBeGreaterThanOrEqual(0.65);
   });
+
+  it('qualifies a real multi-word business whose domain drops the spaces', () => {
+    const result = verifyWebsite({
+      businessName: 'Indian Accent',
+      websiteUrl: 'https://indianaccent.com/newdelhi',
+      phone: '+911126925151',
+      city: 'New Delhi',
+      pageTitle: 'Indian Accent | Modern Indian Cuisine',
+      pageText: 'Indian Accent, New Delhi. Reservations: +91 11 2692 5151.',
+    });
+    expect(result.reasons).toContain('domain_name_affinity');
+    expect(result.confidence).toBeGreaterThanOrEqual(0.75);
+    expect(result.status).toBe('VERIFIED');
+  });
+
+  it('does not credit an aggregator domain with name affinity', () => {
+    const result = verifyWebsite({
+      businessName: 'Indian Punch Restaurant',
+      websiteUrl: 'https://www.zomato.com/ncr/indian-punch-restaurant',
+      city: 'New Delhi',
+      pageTitle: 'Zomato',
+      pageText: '',
+    });
+    expect(result.reasons).not.toContain('domain_name_affinity');
+  });
+
+  it('stays INVALID when the page could not be fetched', () => {
+    const result = verifyWebsite({
+      businessName: 'Sharans Kitchen',
+      websiteUrl: 'https://some-unrelated-host.com',
+    });
+    expect(result.status).toBe('INVALID');
+  });
 });

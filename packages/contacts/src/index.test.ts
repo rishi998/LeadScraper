@@ -30,4 +30,50 @@ describe('extractContactsFromHtml', () => {
     const primaries = selectPrimaryContacts(contacts);
     expect(primaries.length).toBeGreaterThan(0);
   });
+
+  it('ignores error-tracker DSNs and other machine-generated addresses', () => {
+    const html = `
+<html><body>
+  <p>Write to reservations@bistro.example.com</p>
+  <script>Sentry.init({dsn:"https://8c4075d5481d476e945486754f783364@sentry.io/12345"});</script>
+  <p>placeholder: youremail@example.com</p>
+</body></html>`;
+    const emails = extractContactsFromHtml({
+      url: 'https://bistro.example.com/',
+      html,
+      websiteDomain: 'bistro.example.com',
+    })
+      .filter((c) => c.type === ContactType.EMAIL)
+      .map((c) => c.value);
+
+    expect(emails).toEqual(['reservations@bistro.example.com']);
+  });
+
+  it('does not weld adjacent labels onto an address', () => {
+    const html = `
+<html><body>
+  <div><span>Reservations</span><a href="/x">reservations@bistro.example.com</a><span>Gift Cards</span></div>
+</body></html>`;
+    const emails = extractContactsFromHtml({
+      url: 'https://bistro.example.com/',
+      html,
+      websiteDomain: 'bistro.example.com',
+    })
+      .filter((c) => c.type === ContactType.EMAIL)
+      .map((c) => c.value);
+
+    expect(emails).toEqual(['reservations@bistro.example.com']);
+  });
+
+  it('keeps the address out of a mailto query string', () => {
+    const emails = extractContactsFromHtml({
+      url: 'https://bistro.example.com/contact',
+      html: '<html><body><a href="mailto:hello@bistro.example.com?subject=Table%20for%20two">Mail</a></body></html>',
+      websiteDomain: 'bistro.example.com',
+    })
+      .filter((c) => c.type === ContactType.EMAIL)
+      .map((c) => c.value);
+
+    expect(emails).toEqual(['hello@bistro.example.com']);
+  });
 });
